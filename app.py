@@ -1,60 +1,43 @@
 import os
-import streamlit as st
-from PIL import Image
+import uuid
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import FileResponse
 from rembg import remove, new_session
-import io
+from PIL import Image
 
-# Render optimization
+# optimization
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-# Page config
-st.set_page_config(
-    page_title="AI Background Remover",
-    page_icon="🖼️",
-    layout="centered"
-)
+app = FastAPI(title="Background Remover API")
 
-# Title
-st.title("AI Background Remover")
-st.write("Upload an image to remove background")
+session = new_session()
 
-# Load AI model safely
-@st.cache_resource
-def load_model():
-    return new_session()
+OUTPUT_DIR = "outputs"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-session = load_model()
 
-# File uploader
-uploaded_file = st.file_uploader(
-    "Upload Image",
-    type=["png", "jpg", "jpeg"]
-)
+@app.get("/")
+def home():
+    return {"status": "API is running"}
 
-# Process image
-if uploaded_file is not None:
 
-    input_image = Image.open(uploaded_file).convert("RGBA")
+@app.post("/remove-bg")
+async def remove_background(file: UploadFile = File(...)):
 
-    st.subheader("Original Image")
-    st.image(input_image)
+    file_id = str(uuid.uuid4())
 
-    with st.spinner("Removing background..."):
-        output_image = remove(input_image, session=session)
+    input_path = f"{OUTPUT_DIR}/{file_id}.png"
+    output_path = f"{OUTPUT_DIR}/output_{file_id}.png"
 
-    st.subheader("Result Image")
-    st.image(output_image)
+    # save uploaded file
+    with open(input_path, "wb") as f:
+        f.write(await file.read())
 
-    buf = io.BytesIO()
-    output_image.save(buf, format="PNG")
+    # process image
+    image = Image.open(input_path)
+    output = remove(image, session=session)
 
-    st.download_button(
-        "Download Image",
-        buf.getvalue(),
-        "bg_removed.png",
-        "image/png"
-    )
+    output.save(output_path)
 
-else:
-    st.info("Please upload an image to begin")
+    return FileResponse(output_path, media_type="image/png")

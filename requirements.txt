@@ -1,4 +1,8 @@
+fastapi
+uvicorn
+python-multipart
 streamlit
 rembg
 pillow
 onnxruntime
+numpy==1.26.4
