@@ -4,64 +4,57 @@ from PIL import Image
 from rembg import remove, new_session
 import io
 
-# Limit CPU threads (Render free tier friendly)
+# Render optimization
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-# Page setup
+# Page config
 st.set_page_config(
     page_title="AI Background Remover",
     page_icon="🖼️",
     layout="centered"
 )
 
+# Title
 st.title("AI Background Remover")
-st.write("Upload an image and remove its background instantly.")
+st.write("Upload an image to remove background")
 
-# Cache AI model session
+# Load AI model safely
 @st.cache_resource
-def get_session():
+def load_model():
     return new_session()
 
-session = get_session()
-
-# Resize function
-def resize_image(img, max_size=800):
-    if max(img.size) > max_size:
-        img.thumbnail((max_size, max_size))
-    return img
+session = load_model()
 
 # File uploader
 uploaded_file = st.file_uploader(
-    "Upload image...",
+    "Upload Image",
     type=["png", "jpg", "jpeg"]
 )
 
-if uploaded_file:
+# Process image
+if uploaded_file is not None:
 
-    img = Image.open(uploaded_file).convert("RGBA")
-    img = resize_image(img)
+    input_image = Image.open(uploaded_file).convert("RGBA")
 
     st.subheader("Original Image")
-    st.image(img)
+    st.image(input_image)
 
     with st.spinner("Removing background..."):
-        output_img = remove(img, session=session)
+        output_image = remove(input_image, session=session)
 
-    st.subheader("Background Removed")
-    st.image(output_img)
+    st.subheader("Result Image")
+    st.image(output_image)
 
     buf = io.BytesIO()
-    output_img.save(buf, format="PNG")
+    output_image.save(buf, format="PNG")
 
     st.download_button(
-        "⬇ Download",
-        data=buf.getvalue(),
-        file_name="bg_removed.png",
-        mime="image/png"
+        "Download Image",
+        buf.getvalue(),
+        "bg_removed.png",
+        "image/png"
     )
 
-    st.success("Done!")
-
 else:
-    st.info("Please upload an image.")
+    st.info("Please upload an image to begin")
